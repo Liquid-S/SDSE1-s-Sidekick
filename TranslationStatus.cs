@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
+﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Windows.Forms;
 
 namespace SDSE1_s_Sidekick
@@ -20,13 +14,13 @@ namespace SDSE1_s_Sidekick
 
         private void ComputeProgress(string UMDIMAGEpath)
         {
-            int InterventionsTranslated = 0, TotalD = 0,            
+            int InterventionsTranslated = 0, TotalD = 0,
             PrologueIT = 0, Chap1IT = 0, Chap2IT = 0, Chap3IT = 0, Chap4IT = 0, Chap5IT = 0, Chap6IT = 0, // IT stands for "Interventions Translated".
             EpilogueIT = 0, FreeTimeIT = 0, OtherIT = 0,
             PrologueTOT = 0, Chap1TOT = 0, Chap2TOT = 0, Chap3TOT = 0, Chap4TOT = 0, Chap5TOT = 0, Chap6TOT = 0,
             EpilogueTOT = 0, FreeTimeTOT = 0, OtherTOT = 0;
 
-            List<string> FilesYetToBeTranslated = new List<string>();
+            List<string> FilesYetToBeTranslated = new List<string>(), CorruptedFiles = new List<string>();
 
             foreach (string TXTFile in Directory.GetFiles(UMDIMAGEpath, "*.txt", SearchOption.AllDirectories))
             {
@@ -38,31 +32,38 @@ namespace SDSE1_s_Sidekick
 
                     /* Saves the path and delete whatever comes before "UMDIMAGE".
                      This way it will be easier to find out from what chapter the txt is. */
-                    DirName = DirName.Replace(UMDIMAGEpath, null);                    
+                    DirName = DirName.Replace(UMDIMAGEpath, null);
 
-                    byte flag = 0; // 0 = Not translated - 1 = Translated.
+                    byte flag = 0; // 0 = Not translated, 1 = Translated, 2 = File corrupted.
 
-                    if (TXT.Length > 4) // If lenght <= 4, then the file doesn't have text. Just a empty space.
+                    // START - Check the TXT to determine if it has been translated.
+                    if (txtEditor.ReadUInt16() == 0xFEFF)
                     {
-                        TXT.Seek(0x02, SeekOrigin.Begin);
-                        uint OP = txtEditor.ReadUInt32();
+                        if (TXT.Length > 4) // If lenght <= 4, then the file doesn't have text. Just a empty space.
+                        {
+                            uint OP = txtEditor.ReadUInt32();
 
-                        TXT.Seek(TXT.Length - 2, SeekOrigin.Begin);
-                        short ED = txtEditor.ReadInt16();
+                            TXT.Seek(TXT.Length - 2, SeekOrigin.Begin);
+                            short ED = txtEditor.ReadInt16();
 
-                        if ((OP != 0x00000020 && ED != 0x0) || (OP == 0x00000020 && TXT.Length == 10))
+                            if ((OP != 0x00000020 && ED != 0x0) || (OP == 0x00000020 && TXT.Length == 10))
+                                flag = 1;
+                        }
+                        else
                             flag = 1;
                     }
                     else
-                        flag = 1;
+                        flag = 2; // File corrupted!
+                    // END - Check the TXT to determine if it has been translated.
 
-                    /* Let's count how many files have been translated until now.
-                      If the TXT contains "<text lang="en">" that means that it has been translated.
-            The other two conditions "||" are needed because we need to count empty interventions too. */
-                    if (flag == 1)
+
+                    if (flag == 0) // If the TXT hasn't been translated, then add it to the list "FilesYetToBeTranslated". 
+                        FilesYetToBeTranslated.Add(DirName);
+                    else if (flag == 1) // Let's count how many files have been translated until now.
                     {
                         InterventionsTranslated++;
-                        if (DirName.Contains("e00")) 
+
+                        if (DirName.Contains("e00"))
                             PrologueIT++;
                         else if (DirName.Contains("e01"))
                             Chap1IT++;
@@ -83,8 +84,8 @@ namespace SDSE1_s_Sidekick
                         else
                             OtherIT++;
                     }
-                    else // If the TXT hasn't been translated, then add it to the list "FilesYetToBeTranslated". 
-                        FilesYetToBeTranslated.Add(DirName);
+                    else if (flag == 2) // If the TXT is corrupted, then add it to the list "CorruptedFiles". 
+                        CorruptedFiles.Add(DirName);
 
                     // Let's count the total amount of interventions the game has.
                     if (DirName.Contains("e00"))
@@ -113,10 +114,19 @@ namespace SDSE1_s_Sidekick
             // Print the list of interventions that hasn't been translated yet.
             if (FilesYetToBeTranslated.Count > 0)
             {
-                using (FileStream TestoDaTradurre = new FileStream("Files_yet_to_be_translated.txt", FileMode.Create, FileAccess.Write))
-                using (BinaryWriter txts = new BinaryWriter(TestoDaTradurre))
+                using (FileStream TXTFile = new FileStream("Files_yet_to_be_translated.txt", FileMode.Create, FileAccess.Write))
+                using (BinaryWriter TXTBin = new BinaryWriter(TXTFile))
                     for (int i = 0; i < FilesYetToBeTranslated.Count; i++)
-                        txts.Write((FilesYetToBeTranslated[i] + "\n").ToCharArray());
+                        TXTBin.Write((FilesYetToBeTranslated[i] + "\n").ToCharArray());
+            }
+
+            // Print the corrupted files' list.
+            if (FilesYetToBeTranslated.Count > 0)
+            {
+                using (FileStream TXTFile = new FileStream("Corrupted_Files.txt", FileMode.Create, FileAccess.Write))
+                using (BinaryWriter TXTBin = new BinaryWriter(TXTFile))
+                    for (int i = 0; i < CorruptedFiles.Count; i++)
+                        TXTBin.Write((CorruptedFiles[i] + "\n").ToCharArray());
             }
 
             // TottalD = Total amount of interventions in the game. 
@@ -150,6 +160,9 @@ namespace SDSE1_s_Sidekick
             labelFreeTimeIT.Text = FreeTimeIT + " / " + FreeTimeTOT + "  (" + PercentageFreeTime.ToString("#.##") + "%)";
             labelOtherIT.Text = OtherIT + " / " + OtherTOT + "  (" + PercentageOther.ToString("#.##") + "%)";
             labelTotalIT.Text = InterventionsTranslated + " / " + TotalD + "  (" + PercentageTOT.ToString("#.##") + "%)";
+
+            if (FilesYetToBeTranslated.Count > 0)
+                MessageBox.Show("The corrupted files' list has been saved inside \"Corrupted_Files.txt\".\nReplace the corrupted files one by one with an old working backup.", "One or more files are corrupted!", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 }

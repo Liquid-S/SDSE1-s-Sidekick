@@ -15,5 +15,9 @@ so if you are not using the SDSE1, the SDSE1's Sidekick is not useful to you.
 -------------------------------------------------------------------------------------
 
 # 2 — Changelog
+## Version: 1.1 (Release: 31th May 2017)
+- Now the tool will search for corrupted files
+while calculating the translation progress
+
 ## Version: 1.0 (Release: 30th May 2017)
 - First public release.

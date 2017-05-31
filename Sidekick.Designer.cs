@@ -170,7 +170,7 @@
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
             this.Name = "Sidekick";
-            this.Text = "SDSE1\'s Sidekick (Vers. 1.00)";
+            this.Text = "SDSE1\'s Sidekick (Vers. 1.1)";
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel1.PerformLayout();
             this.tableLayoutPanel2.ResumeLayout(false);
